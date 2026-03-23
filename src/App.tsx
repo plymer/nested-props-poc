@@ -1,6 +1,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Map, { Layer, Source, type MapRef } from "react-map-gl/maplibre";
+import type { ExpressionSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection, Point, Position } from "geojson";
 
 type ViewBounds = {
@@ -22,6 +23,64 @@ const TARGET_FRAMETIME = 1_000 / TARGET_UPS; // 20 updates per second
 const NUM_FRAMES = 19;
 const DELTA_TIME = 10 * 60 * 1_000; // 10 minutes in milliseconds
 const currentTime = new Date().getTime();
+
+const buildValidValueExpression = (
+  property: string,
+): ExpressionSpecification => {
+  const cases: ExpressionSpecification[] = [];
+
+  for (let idx = NUM_FRAMES - 1; idx >= 0; idx--) {
+    cases.push(
+      [
+        "all",
+        [">", ["length", ["var", "times"]], idx],
+        [">", ["length", ["var", "values"]], idx],
+        ["<=", ["at", idx, ["var", "times"]], ["var", "targetTime"]],
+      ],
+      ["at", idx, ["var", "values"]],
+    );
+  }
+
+  return [
+    "let",
+    "targetTime",
+    ["to-number", ["global-state", "currentTime"], 0],
+    [
+      "let",
+      "times",
+      ["get", "times"],
+      ["let", "values", ["get", property], ["case", ...cases, null]],
+    ],
+  ] as unknown as ExpressionSpecification;
+};
+
+const sfcPlotText = (property: string): ExpressionSpecification =>
+  [
+    "let",
+    "value",
+    buildValidValueExpression(property),
+    [
+      "case",
+      ["!=", ["var", "value"], null],
+      ["to-string", ["var", "value"]],
+      "",
+    ],
+  ] as unknown as ExpressionSpecification;
+
+const sfcPlotNumber = (
+  property: string,
+  fallback: number,
+): ExpressionSpecification =>
+  [
+    "to-number",
+    [
+      "let",
+      "value",
+      buildValidValueExpression(property),
+      ["case", ["!=", ["var", "value"], null], ["var", "value"], fallback],
+    ],
+    fallback,
+  ] as unknown as ExpressionSpecification;
 
 function App() {
   const [zoom, setZoom] = useState<number>();
@@ -261,6 +320,13 @@ function App() {
 
   const renderedPointCount = boundsFilteredGeoJSON.features.length;
 
+  const mslpExp = useMemo(() => sfcPlotText("mslp"), []);
+  const ttExp = useMemo(() => sfcPlotText("tt"), []);
+  const tdExp = useMemo(() => sfcPlotText("td"), []);
+  const windDirValExp = useMemo(() => sfcPlotNumber("windDir", 0), []);
+  const windDirExp = useMemo(() => sfcPlotText("windDir"), []);
+  const windSpdExp = useMemo(() => sfcPlotText("windSpd"), []);
+
   return (
     <div style={{ width: "100dvw", height: "100dvh" }}>
       <Map
@@ -307,9 +373,7 @@ function App() {
             layout={{
               "text-size": 10,
               "text-field":
-                mode === "nested"
-                  ? ["to-string", ["at", frameIndex, ["get", "mslp"]]]
-                  : ["to-string", ["get", "mslp"]],
+                mode === "nested" ? mslpExp : ["to-string", ["get", "mslp"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
               "text-offset": [0.5, 0],
@@ -328,9 +392,7 @@ function App() {
             layout={{
               "text-size": 10,
               "text-field":
-                mode === "nested"
-                  ? ["to-string", ["at", frameIndex, ["get", "tt"]]]
-                  : ["to-string", ["get", "tt"]],
+                mode === "nested" ? ttExp : ["to-string", ["get", "tt"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
               "text-offset": [0, -1],
@@ -349,9 +411,7 @@ function App() {
             layout={{
               "text-size": 10,
               "text-field":
-                mode === "nested"
-                  ? ["to-string", ["at", frameIndex, ["get", "td"]]]
-                  : ["to-string", ["get", "td"]],
+                mode === "nested" ? tdExp : ["to-string", ["get", "td"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
               "text-offset": [0, 1],
@@ -370,15 +430,13 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", frameIndex, ["get", "windDir"]]]
+                  ? windDirExp
                   : ["to-string", ["get", "windDir"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
               "text-offset": [1, 1],
               "text-rotate":
-                mode === "nested"
-                  ? ["at", frameIndex, ["get", "windDir"]]
-                  : ["get", "windDir"],
+                mode === "nested" ? windDirValExp : ["get", "windDir"],
             }}
             paint={{
               "text-color": "red",
@@ -394,7 +452,7 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", frameIndex, ["get", "windSpd"]]]
+                  ? windSpdExp
                   : ["to-string", ["get", "windSpd"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
