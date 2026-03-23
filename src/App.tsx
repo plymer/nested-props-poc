@@ -44,7 +44,7 @@ const buildValidValueExpression = (
   return [
     "let",
     "targetTime",
-    ["to-number", ["global-state", "currentTime"], 0],
+    ["to-number", ["global-state", "currentTime"], new Date().getTime()],
     [
       "let",
       "times",
