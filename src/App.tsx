@@ -157,7 +157,7 @@ function App() {
           Math.random() * 180 - 90,
         ];
 
-        for (let j = 0; j < (mode === "nested" ? 1 : 6); j++) {
+        for (let j = 0; j < (mode === "nested" ? 1 : NUM_FRAMES - 1); j++) {
           features.push({
             type: "Feature",
             geometry: {
@@ -168,35 +168,25 @@ function App() {
               mode === "nested"
                 ? {
                     siteId: i,
-                    times: [0, 1, 2, 3, 4, 5],
-                    mslp: [0, 1, 2, 3, 4, 5].map(() =>
+                    times: timeStamps,
+                    mslp: timeStamps.map(() => Math.round(Math.random() * 100)),
+                    tt: timeStamps.map(() => Math.round(Math.random() * 100)),
+                    td: timeStamps.map(() => Math.round(Math.random() * 100)),
+                    cig: timeStamps.map(() => Math.round(Math.random() * 100)),
+                    vis: timeStamps.map(() => Math.round(Math.random() * 100)),
+                    windDir: timeStamps.map(() =>
                       Math.round(Math.random() * 100),
                     ),
-                    tt: [0, 1, 2, 3, 4, 5].map(() =>
+                    windSpd: timeStamps.map(() =>
                       Math.round(Math.random() * 100),
                     ),
-                    td: [0, 1, 2, 3, 4, 5].map(() =>
-                      Math.round(Math.random() * 100),
-                    ),
-                    cig: [0, 1, 2, 3, 4, 5].map(() =>
-                      Math.round(Math.random() * 100),
-                    ),
-                    vis: [0, 1, 2, 3, 4, 5].map(() =>
-                      Math.round(Math.random() * 100),
-                    ),
-                    windDir: [0, 1, 2, 3, 4, 5].map(() =>
-                      Math.round(Math.random() * 100),
-                    ),
-                    windSpd: [0, 1, 2, 3, 4, 5].map(() =>
-                      Math.round(Math.random() * 100),
-                    ),
-                    windGust: [0, 1, 2, 3, 4, 5].map(() =>
+                    windGust: timeStamps.map(() =>
                       Math.round(Math.random() * 100),
                     ),
                   }
                 : {
                     siteId: i,
-                    times: j,
+                    times: timeStamps[j],
                     mslp: Math.round(Math.random() * 100),
                     tt: Math.round(Math.random() * 100),
                     td: Math.round(Math.random() * 100),
@@ -211,7 +201,7 @@ function App() {
       }
       return features;
     },
-    [],
+    [timeStamps],
   );
 
   const nestedFeatures = useMemo(
@@ -235,7 +225,7 @@ function App() {
     const features = flatFeatures.reduce<Feature<Point>[]>((acc, feature) => {
       if (!feature.properties) return acc;
 
-      if (feature.properties.times !== frameIndex) return acc;
+      if (feature.properties.times !== timeStamps[frameIndex]) return acc;
 
       acc.push(feature);
 
@@ -245,7 +235,7 @@ function App() {
       type: "FeatureCollection",
       features,
     };
-  }, [flatFeatures, frameIndex]);
+  }, [flatFeatures, timeStamps, frameIndex]);
 
   const activeGeoJSON: FeatureCollection<Point> =
     mode === "nested" ? nestedGeoJSON : flatGeoJSON;
@@ -270,8 +260,6 @@ function App() {
   }, [activeGeoJSON, viewBounds]);
 
   const renderedPointCount = boundsFilteredGeoJSON.features.length;
-
-  const timeIndex = 0;
 
   return (
     <div style={{ width: "100dvw", height: "100dvh" }}>
@@ -320,7 +308,7 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", timeIndex, ["get", "mslp"]]]
+                  ? ["to-string", ["at", frameIndex, ["get", "mslp"]]]
                   : ["to-string", ["get", "mslp"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
@@ -341,7 +329,7 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", timeIndex, ["get", "tt"]]]
+                  ? ["to-string", ["at", frameIndex, ["get", "tt"]]]
                   : ["to-string", ["get", "tt"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
@@ -362,7 +350,7 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", timeIndex, ["get", "td"]]]
+                  ? ["to-string", ["at", frameIndex, ["get", "td"]]]
                   : ["to-string", ["get", "td"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
@@ -382,14 +370,14 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", timeIndex, ["get", "windDir"]]]
+                  ? ["to-string", ["at", frameIndex, ["get", "windDir"]]]
                   : ["to-string", ["get", "windDir"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
               "text-offset": [1, 1],
               "text-rotate":
                 mode === "nested"
-                  ? ["at", timeIndex, ["get", "windDir"]]
+                  ? ["at", frameIndex, ["get", "windDir"]]
                   : ["get", "windDir"],
             }}
             paint={{
@@ -406,7 +394,7 @@ function App() {
               "text-size": 10,
               "text-field":
                 mode === "nested"
-                  ? ["to-string", ["at", timeIndex, ["get", "windSpd"]]]
+                  ? ["to-string", ["at", frameIndex, ["get", "windSpd"]]]
                   : ["to-string", ["get", "windSpd"]],
               "text-allow-overlap": true,
               "text-anchor": "left",
