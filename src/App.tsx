@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Map, { Layer, Source, type MapRef } from "react-map-gl/maplibre";
 import type { Feature, FeatureCollection, Point, Position } from "geojson";
 
-type TimeIndex = 0 | 1 | 2 | 3 | 4 | 5;
 type ViewBounds = {
   west: number;
   east: number;
@@ -11,19 +10,22 @@ type ViewBounds = {
   north: number;
 };
 
-const updateTimeIndex = (index: number) => {
-  if (index < 0) return 5;
-  if (index > 5) return 0;
-  return index as TimeIndex;
+const updateFrameIndex = (index: number) => {
+  if (index < 0) return NUM_FRAMES - 1;
+  if (index > NUM_FRAMES - 1) return 0;
+  return index;
 };
 
 const NUM_POINTS = 2000;
 const TARGET_UPS = 20;
 const TARGET_FRAMETIME = 1_000 / TARGET_UPS; // 20 updates per second
+const NUM_FRAMES = 19;
+const DELTA_TIME = 10 * 60 * 1_000; // 10 minutes in milliseconds
+const currentTime = new Date().getTime();
 
 function App() {
   const [zoom, setZoom] = useState<number>();
-  const [timeIndex, setTimeIndex] = useState<TimeIndex>(0);
+  const [frameIndex, setFrameIndex] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [mode, setMode] = useState<"nested" | "flat">("nested");
   const [requestedUps, setRequestedUps] = useState(0);
@@ -39,8 +41,25 @@ function App() {
   const presentedAverageSamplesRef = useRef(0);
   const presentedAverageTotalRef = useRef(0);
 
+  const timeStamps = useMemo(() => {
+    const times = [];
+
+    for (let i = NUM_FRAMES - 1; i >= 0; i--) {
+      times.push(currentTime - i * DELTA_TIME);
+    }
+
+    return times;
+  }, []);
+
+  useEffect(() => {
+    const mapInstance = mapRef.current;
+    if (!mapInstance) return;
+
+    mapInstance.setGlobalStateProperty("currentTime", timeStamps[frameIndex]);
+  }, [timeStamps, frameIndex]);
+
   const stepTime = useCallback((delta: number) => {
-    setTimeIndex((prev) => updateTimeIndex(prev + delta));
+    setFrameIndex((prev) => updateFrameIndex(prev + delta));
     updateVersionRef.current += 1;
     requestedCountRef.current += 1;
   }, []);
@@ -216,7 +235,7 @@ function App() {
     const features = flatFeatures.reduce<Feature<Point>[]>((acc, feature) => {
       if (!feature.properties) return acc;
 
-      if (feature.properties.times !== timeIndex) return acc;
+      if (feature.properties.times !== frameIndex) return acc;
 
       acc.push(feature);
 
@@ -226,7 +245,7 @@ function App() {
       type: "FeatureCollection",
       features,
     };
-  }, [flatFeatures, timeIndex]);
+  }, [flatFeatures, frameIndex]);
 
   const activeGeoJSON: FeatureCollection<Point> =
     mode === "nested" ? nestedGeoJSON : flatGeoJSON;
@@ -251,6 +270,8 @@ function App() {
   }, [activeGeoJSON, viewBounds]);
 
   const renderedPointCount = boundsFilteredGeoJSON.features.length;
+
+  const timeIndex = 0;
 
   return (
     <div style={{ width: "100dvw", height: "100dvh" }}>
