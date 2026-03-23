@@ -217,6 +217,15 @@ function App() {
         ];
 
         for (let j = 0; j < (mode === "nested" ? 1 : NUM_FRAMES - 1); j++) {
+          const shouldInclude = Math.random() < 0.5;
+
+          if (mode === "flat" && !shouldInclude) continue;
+
+          const includedTimeStamps =
+            mode === "nested"
+              ? timeStamps.filter((ts) => (Math.random() < 0.5 ? ts : null))
+              : [timeStamps[j]];
+
           features.push({
             type: "Feature",
             geometry: {
@@ -227,25 +236,35 @@ function App() {
               mode === "nested"
                 ? {
                     siteId: i,
-                    times: timeStamps,
-                    mslp: timeStamps.map(() => Math.round(Math.random() * 100)),
-                    tt: timeStamps.map(() => Math.round(Math.random() * 100)),
-                    td: timeStamps.map(() => Math.round(Math.random() * 100)),
-                    cig: timeStamps.map(() => Math.round(Math.random() * 100)),
-                    vis: timeStamps.map(() => Math.round(Math.random() * 100)),
-                    windDir: timeStamps.map(() =>
+                    times: includedTimeStamps,
+                    mslp: includedTimeStamps.map(() =>
                       Math.round(Math.random() * 100),
                     ),
-                    windSpd: timeStamps.map(() =>
+                    tt: includedTimeStamps.map(() =>
                       Math.round(Math.random() * 100),
                     ),
-                    windGust: timeStamps.map(() =>
+                    td: includedTimeStamps.map(() =>
+                      Math.round(Math.random() * 100),
+                    ),
+                    cig: includedTimeStamps.map(() =>
+                      Math.round(Math.random() * 100),
+                    ),
+                    vis: includedTimeStamps.map(() =>
+                      Math.round(Math.random() * 100),
+                    ),
+                    windDir: includedTimeStamps.map(() =>
+                      Math.round(Math.random() * 100),
+                    ),
+                    windSpd: includedTimeStamps.map(() =>
+                      Math.round(Math.random() * 100),
+                    ),
+                    windGust: includedTimeStamps.map(() =>
                       Math.round(Math.random() * 100),
                     ),
                   }
                 : {
                     siteId: i,
-                    times: timeStamps[j],
+                    times: includedTimeStamps[0],
                     mslp: Math.round(Math.random() * 100),
                     tt: Math.round(Math.random() * 100),
                     td: Math.round(Math.random() * 100),
